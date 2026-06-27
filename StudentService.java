@@ -1,11 +1,12 @@
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.io.File;
-import java.util.Scanner;
 import java.util.Iterator;
+import java.util.Scanner;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.Statement;
 
 public class StudentService {
 
@@ -14,35 +15,39 @@ public class StudentService {
     // Add student
     public void addStudent(Student student) {
 
+        if (student.getName() == null || student.getName().isEmpty()) {
+            System.out.println("Name cannot be empty");
+            return;
+        }
 
-            // ID validation
-            if (student.getId() <= 0) {
-                System.out.println("ID must be positive.");
-                return;
-            }
+        if (student.getMarks() < 0 || student.getMarks() > 100) {
+            System.out.println("Invalid marks");
+            return;
+        }
 
-            // Duplicate ID check
-            for (Student s : students) {
-                if (s.getId() == student.getId()) {
-                    System.out.println("Student with this ID already exists.");
-                    return;
-                }
-            }
+        String sql = "INSERT INTO students (id, name, marks) VALUES (?, ?, ?)";
 
-            // Name validation
-            if (student.getName() == null || student.getName().trim().isEmpty()) {
-                System.out.println("Name cannot be empty.");
-                return;
-            }
+        try (Connection con = DBConnection.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
 
-            // Marks validation
-            if (student.getMarks() < 0 || student.getMarks() > 100) {
-                System.out.println("Marks must be between 0 and 100.");
-                return;
-            }
+            ps.setInt(1, student.getId());
+            ps.setString(2, student.getName());
+            ps.setDouble(3, student.getMarks());
 
+            ps.executeUpdate();
+
+            //add to ArrayList ONLY if DB insert succeeds
             students.add(student);
-            System.out.println("Student added successfully!");
+
+            System.out.println("Student added successfully");
+
+        } catch (java.sql.SQLIntegrityConstraintViolationException e) {
+
+            System.out.println("Student with this ID already exists!");
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     // Display students
@@ -58,10 +63,8 @@ public class StudentService {
         }
     }
 
-    // Search student
+    // Search student by ID
     public void searchStudent(int id) {
-
-        boolean found = false;
 
         if (id <= 0) {
             System.out.println("Invalid ID.");
@@ -69,317 +72,204 @@ public class StudentService {
         }
 
         for (Student s : students) {
-
             if (s.getId() == id) {
-
                 System.out.println("Student Found:");
                 System.out.println(s);
-
-                found = true;
-
-                break;
-            }
-        }
-
-        if (!found) {
-            System.out.println("Student not found.");
-        }
-    }
-
-    // Delete student
-    public void deleteStudent(int id)   {
-
-        Iterator<Student> it = students.iterator();
-
-        if (id <= 0) {
-            System.out.println("Invalid ID.");
-            return;
-        }
-
-        while(it.hasNext()) {
-
-            Student s = it.next();
-
-            if(s.getId() == id) {
-                it.remove();
-                System.out.println("Student deleted successfully.");
                 return;
             }
         }
 
         System.out.println("Student not found.");
-
     }
 
-    // Update student
-    public void updateStudent(int id, String newName, double newMarks) {
+    // Delete student
+    public void deleteStudent(int id) {
 
         if (id <= 0) {
             System.out.println("Invalid ID.");
             return;
         }
 
-        if (newName == null || newName.trim().isEmpty()) {
-            System.out.println("Name cannot be empty.");
+        Iterator<Student> it = students.iterator();
+
+        while (it.hasNext()) {
+            Student s = it.next();
+            if (s.getId() == id) {
+                it.remove();
+                break;
+            }
+        }
+
+        String sql = "DELETE FROM students WHERE id=?";
+
+        try (Connection con = DBConnection.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+
+            ps.setInt(1, id);
+            ps.executeUpdate();
+            System.out.println("Student deleted successfully.");
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    // Update student
+    public void updateStudent(int id, String newName, double newMarks) {
+
+        if (id <= 0 || newName == null || newName.isEmpty() || newMarks < 0 || newMarks > 100) {
+            System.out.println("Invalid input");
             return;
         }
 
-        if (newMarks < 0 || newMarks > 100) {
-            System.out.println("Marks must be between 0 and 100.");
-            return;
+        for (Student s : students) {
+            if (s.getId() == id) {
+                s.setName(newName);
+                s.setMarks(newMarks);
+                break;
+            }
         }
+
+        String sql = "UPDATE students SET name=?, marks=? WHERE id=?";
+
+        try (Connection con = DBConnection.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+
+            ps.setString(1, newName);
+            ps.setDouble(2, newMarks);
+            ps.setInt(3, id);
+
+            ps.executeUpdate();
+            System.out.println("Student updated successfully");
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    // Load data from database
+    public void loadFromDatabase() {
+
+        students.clear();
+
+        String sql = "SELECT * FROM students";
+
+        try (Connection con = DBConnection.getConnection();
+             Statement st = con.createStatement();
+             ResultSet rs = st.executeQuery(sql)) {
+
+            while (rs.next()) {
+                students.add(new Student(
+                        rs.getInt("id"),
+                        rs.getString("name"),
+                        rs.getDouble("marks")
+                ));
+            }
+
+            System.out.println("Data loaded from database");
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    // Search by name
+    public void searchByName(String name) {
 
         boolean found = false;
 
         for (Student s : students) {
-
-            if (s.getId() == id) {
-                s.setName(newName);
-                s.setMarks(newMarks);
-
+            if (s.getName().equalsIgnoreCase(name)) {
+                System.out.println(s);
                 found = true;
-
-                System.out.println("Student updated successfully");
-
-                break;
             }
         }
+
         if (!found) {
             System.out.println("Student not found");
         }
     }
 
-    // Sort students by marks
-    public void sortStudentsByMarks() {
+    // Sort by name
+    public void sortStudentByName() {
 
         if (students.isEmpty()) {
-            System.out.println("No students found.");
-            return;
-        }
-
-        students.sort((s1, s2) ->
-                Double.compare(s1.getMarks(), s2.getMarks())
-        );
-
-        System.out.println("Students sorted successfully.");
-
-        displayStudents();
-    }
-
-    // Save data in text file
-    public void saveToFile() {
-
-        try {
-
-            FileWriter writer = new FileWriter("students.txt");
-
-            for (Student s : students) {
-
-                writer.write(
-                        s.getId() + "," +
-                                s.getName() + "," +
-                                s.getMarks() + "\n"
-                );
-            }
-
-            writer.close();
-
-            System.out.println("Data saved successfully!");
-
-        } catch (IOException e) {
-
-            System.out.println("Error while saving file.");
-        }
-    }
-
-    // Load from Text file to ArrayList
-    public void loadFromFile() {
-
-        try {
-
-            File file = new File("students.txt");
-
-            // If file does not exist
-            if (!file.exists()) {
-                return;
-            }
-
-            Scanner fileReader = new Scanner(file);
-
-            students.clear();
-
-            while (fileReader.hasNextLine()) {
-
-                String line = fileReader.nextLine();
-
-                String[] data = line.split(",");
-
-                int id = Integer.parseInt(data[0]);
-                String name = data[1];
-                double marks = Double.parseDouble(data[2]);
-
-                Student student =
-                        new Student(id, name, marks);
-
-                students.add(student);
-            }
-
-            fileReader.close();
-
-            System.out.println("Data loaded successfully!");
-
-        } catch (Exception e) {
-
-            System.out.println("Error loading file.");
-        }
-    }
-
-    //Search by name
-    public void searchByName(String name){
-
-        boolean found = false;
-
-        for(Student s : students){
-
-            if (s.getName().equalsIgnoreCase(name)) {
-
-                System.out.println(
-                    "ID: " + s.getId() + "," +
-                    " Name: " + s.getName() + "," +
-                    " Marks: " + s.getMarks());
-
-                found = true;
-                break;
-            }
-
-        }
-        if(!found){
-            System.out.println("Student not found");
-        }
-    }
-
-    // Sort students by name
-    public void sortStudentByName(){
-
-        if(students.isEmpty()){
             System.out.println("No student found");
             return;
         }
 
-        Collections.sort(students, new Comparator<Student>() {
-
-            @Override
-            public int compare(Student s1, Student s2) {
-
-                return s1.getName()
-                        .compareToIgnoreCase(
-                                s2.getName()
-                        );
-            }
-        });
-
-        System.out.println("Students sorted successfully");
-
+        Collections.sort(students, Comparator.comparing(Student::getName, String.CASE_INSENSITIVE_ORDER));
         displayStudents();
-
     }
 
-    //Topper student
+    // Sort by marks
+    public void sortStudentsByMarks() {
+
+        students.sort(Comparator.comparingDouble(Student::getMarks));
+        displayStudents();
+    }
+
+    // Find topper
     public void findTopper() {
 
-        if(students.isEmpty()) {
-
+        if (students.isEmpty()) {
             System.out.println("No students found");
             return;
         }
 
         Student topper = students.stream()
-                .max((s1, s2) -> Double.compare(s1.getMarks(), s2.getMarks()))
+                .max(Comparator.comparingDouble(Student::getMarks))
                 .get();
 
         System.out.println("Topper Student:");
-
         System.out.println(topper);
     }
 
-    //Average marks
-    public void averageMarks(){
+    // Average marks
+    public void averageMarks() {
 
-        double totalMarks = 0;
-
-        if(students.isEmpty()){
-
-            System.out.println("No student found");
+        if (students.isEmpty()) {
+            System.out.println("No students found");
             return;
         }
 
-        for(Student s : students){
+        double avg = students.stream()
+                .mapToDouble(Student::getMarks)
+                .average()
+                .getAsDouble();
 
-            totalMarks += s.getMarks();
-
-        }
-
-        double avgMarks = totalMarks / students.size();
-
-        System.out.println("Average marks of all the students is: \n" + avgMarks);
-
+        System.out.println("Average marks: " + avg);
     }
 
-    // Find highest and Lowest
-    public void findHighestAndLowest(){
+    // Highest & Lowest
+    public void findHighestAndLowest() {
 
-        if(students.isEmpty()){
-
-            System.out.println("No student found");
-
+        if (students.isEmpty()) {
+            System.out.println("No students found");
             return;
         }
 
-        Student highest = students.get(0);
-        Student lowest = students.get(0);
+        Student highest = Collections.max(students, Comparator.comparingDouble(Student::getMarks));
+        Student lowest = Collections.min(students, Comparator.comparingDouble(Student::getMarks));
 
-        for(Student s : students){
-
-            if(s.getMarks() > highest.getMarks()){
-
-                highest = s;
-
-            }
-
-            if(s.getMarks() < lowest.getMarks()){
-
-                lowest = s;
-
-            }
-        }
-
-        System.out.println("Student with highest marks is: " + highest);
-        System.out.println("Student with lowest marks is: " + lowest);
-
+        System.out.println("Highest: " + highest);
+        System.out.println("Lowest: " + lowest);
     }
 
-    // Filter my marks
-    public void filterByMarks(double minMark){
+    // Filter by marks
+    public void filterByMarks(double minMark) {
 
         boolean found = false;
 
-        for(Student s : students){
-
-            if(s.getMarks() >= minMark){
-
+        for (Student s : students) {
+            if (s.getMarks() >= minMark) {
                 System.out.println(s);
-
                 found = true;
-
             }
-
         }
 
-        if(!found){
+        if (!found) {
             System.out.println("No student found");
         }
-
     }
-
 }
-

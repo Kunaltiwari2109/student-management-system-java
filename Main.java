@@ -1,4 +1,3 @@
-import java.sql.Connection;
 import java.util.Scanner;
 
 public class Main {
@@ -6,39 +5,36 @@ public class Main {
     public static void main(String[] args) {
 
         Scanner sc = new Scanner(System.in);
-
         StudentService service = new StudentService();
 
-        service.loadFromFile();
+        // Load data from MySQL at startup
+        service.loadFromDatabase();
 
         while (true) {
 
             System.out.println("\n===== Student Management System =====");
             System.out.println("1. Add Student");
             System.out.println("2. Display Students");
-            System.out.println("3. Search Student");
+            System.out.println("3. Search Student by ID");
             System.out.println("4. Delete Student");
             System.out.println("5. Update Student");
-            System.out.println("6. Sort by marks");
-            System.out.println("7. Save to file");
-            System.out.println("8. Search student by name");
-            System.out.println("9: Sort students by name");
-            System.out.println("10. Find Topper");
-            System.out.println("11. Find average marks");
-            System.out.println("12. Find student with highest and lowest marks");
-            System.out.println("13. Filter by marks");
-            System.out.println("14. Exit");
+            System.out.println("6. Sort by Marks");
+            System.out.println("7. Search Student by Name");
+            System.out.println("8. Sort Students by Name");
+            System.out.println("9. Find Topper");
+            System.out.println("10. Find Average Marks");
+            System.out.println("11. Find Highest & Lowest Marks");
+            System.out.println("12. Filter by Marks");
+            System.out.println("13. Exit");
             System.out.print("Enter choice: ");
 
             int choice = sc.nextInt();
 
-            switch(choice) {
+            switch (choice) {
 
                 case 1:
-
                     System.out.print("Enter ID: ");
                     int id = sc.nextInt();
-
                     sc.nextLine();
 
                     System.out.print("Enter Name: ");
@@ -47,125 +43,78 @@ public class Main {
                     System.out.print("Enter Marks: ");
                     double marks = sc.nextDouble();
 
-                    Student student = new Student(id, name, marks);
-
-                    service.addStudent(student);
-                    service.loadFromFile();
-
+                    service.addStudent(new Student(id, name, marks));
+                    service.loadFromDatabase();
                     break;
 
                 case 2:
-
                     service.displayStudents();
-
                     break;
 
                 case 3:
-
                     System.out.print("Enter ID to search: ");
-                    int searchId = sc.nextInt();
-
-                    service.searchStudent(searchId);
-
+                    service.searchStudent(sc.nextInt());
                     break;
 
                 case 4:
-
                     System.out.print("Enter ID to delete: ");
-
-                    int deleteId = sc.nextInt();
-
-                    service.deleteStudent(deleteId);
-                    service.loadFromFile();
-
+                    service.deleteStudent(sc.nextInt());
+                    service.loadFromDatabase();
                     break;
 
                 case 5:
-
-                    System.out.println("Enter ID to update: ");
-
+                    System.out.print("Enter ID to update: ");
                     int updateId = sc.nextInt();
-
                     sc.nextLine();
 
-                    System.out.println("Enter new name: ");
+                    System.out.print("Enter new name: ");
+                    String newName = sc.nextLine();
 
-                    String newStudentName = sc.nextLine();
+                    System.out.print("Enter new marks: ");
+                    double newMarks = sc.nextDouble();
 
-                    System.out.println("Enter new marks: ");
-
-                    double newStudentMarks = sc.nextDouble();
-
-                    service.updateStudent(updateId, newStudentName, newStudentMarks);
-                    service.loadFromFile();
-
+                    service.updateStudent(updateId, newName, newMarks);
+                    service.loadFromDatabase();
                     break;
 
                 case 6:
-
                     service.sortStudentsByMarks();
-
                     break;
 
                 case 7:
-
-                    service.saveToFile();
+                    sc.nextLine();
+                    System.out.print("Enter name to search: ");
+                    service.searchByName(sc.nextLine());
                     break;
 
                 case 8:
-
-                    sc.nextLine();
-
-                    System.out.println("Enter name of student: ");
-
-                    String searchName = sc.nextLine();
-
-                    service.searchByName(searchName);
+                    service.sortStudentByName();
                     break;
 
                 case 9:
-
-                    service.sortStudentByName();
-
+                    service.findTopper();
                     break;
 
                 case 10:
-
-                    service.findTopper();
-
+                    service.averageMarks();
                     break;
 
                 case 11:
-
-                    service.averageMarks();
-
+                    service.findHighestAndLowest();
                     break;
 
                 case 12:
-
-                    service.findHighestAndLowest();
-
+                    System.out.print("Enter minimum marks: ");
+                    service.filterByMarks(sc.nextDouble());
                     break;
 
                 case 13:
-
-                    System.out.print("Enter minimum marks: ");
-
-                    double minMarks = sc.nextDouble();
-
-                    service.filterByMarks(minMarks);
-
-                    break;
-
-                case 14:
-
                     System.out.println("Exiting...");
                     sc.close();
                     return;
 
                 default:
-
-                    System.out.println("Option not implemented yet");
+                    System.out.println("Invalid choice");
             }
         }
     }
